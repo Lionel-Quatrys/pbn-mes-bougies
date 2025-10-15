@@ -118,6 +118,88 @@ export const getPost = async (slug: string) => {
   }
 };
 
+export const getProductPost = async (slug: string) => {
+  try {
+    const response = await fetchWithTimeout(
+      `${process.env.NEXT_PUBLIC_WORDPRESS_API_URL}/posts?slug=${slug}&_embed`
+    );
+
+    if (!response || !response.ok) return null;
+    const posts = await response.json();
+
+    if (posts[0]) {
+      const post = posts[0];
+
+      // Clean content
+      post.content.rendered = post.content.rendered
+        .replace(
+          /https?:\/\/(www\.)?(wp\.)?dj-mariage-toulouse\.fr/g,
+          "https://wp.mesbougies.fr"
+        )
+        .replace(/\/\/dj-mariage-toulouse\.fr/g, "//wp.mesbougies.fr");
+
+      // Fix featured image
+      if (post._embedded?.["wp:featuredmedia"]?.[0]) {
+        post._embedded["wp:featuredmedia"][0].source_url = transformImageUrl(
+          post._embedded["wp:featuredmedia"][0].source_url
+        );
+      }
+
+      // Check if this post is from the "produits" category
+      const categories = await getCategories();
+      const productCategory = categories.find((cat) => cat.slug === "produits");
+
+      if (productCategory && post.categories.includes(productCategory.id)) {
+        // Extract product information
+        const contentHTML = post.content?.rendered || "";
+
+        const firstPMatch = contentHTML.match(/<p>([\s\S]*?)<\/p>/);
+        let productInfo = {
+          prix: "",
+          frais_de_port: "",
+          categorie: "",
+          stock: "",
+          description: "",
+        };
+
+        if (firstPMatch) {
+          const firstPContent = firstPMatch[1];
+
+          const prixMatch = firstPContent.match(/Prix\s*:\s*([\d,]+€?)/i);
+          const fraisMatch = firstPContent.match(
+            /frais\s*de\s*port\s*:\s*([^<\n]+)/i
+          );
+          const categorieMatch = firstPContent.match(
+            /Catégorie\s*:\s*([^<\n]+)/i
+          );
+          const stockMatch = firstPContent.match(/stock\s*:\s*(\d+)/i);
+
+          productInfo.prix = prixMatch ? prixMatch[1] : "";
+          productInfo.frais_de_port = fraisMatch ? fraisMatch[1].trim() : "";
+          productInfo.categorie = categorieMatch
+            ? categorieMatch[1].trim()
+            : "";
+          productInfo.stock = stockMatch ? stockMatch[1] : "";
+        }
+
+        const descriptionMatch = contentHTML.match(/<p>.*?<\/p>\s*([\s\S]*)/);
+        productInfo.description = descriptionMatch
+          ? descriptionMatch[1]
+          : contentHTML;
+
+        post.productInfo = productInfo;
+      }
+
+      return post;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Erreur lors de la récupération du produit:", error);
+    return null;
+  }
+};
+
 export const verifyToken = async () => {
   try {
     const response = await api.post("/jwt-auth/v1/token/validate");
@@ -249,6 +331,68 @@ export const getCategoriesWithPosts = async () => {
       "Erreur lors de la récupération des catégories avec posts:",
       error
     );
+    return [];
+  }
+};
+
+export const getProductPosts = async () => {
+  try {
+    const categories = await getCategories();
+    const productCategory = categories.find((cat) => cat.slug === "produits");
+
+    if (!productCategory) {
+      console.error("Catégorie 'produits' non trouvée");
+      return [];
+    }
+
+    const posts = await getPostsByCategory(productCategory.id);
+
+    // Transform posts to extract product information
+    return posts.map((post: any) => {
+      const contentHTML = post.content?.rendered || "";
+
+      // Extract product info from the first <p> tag
+      const firstPMatch = contentHTML.match(/<p>([\s\S]*?)<\/p>/);
+      let productInfo = {
+        prix: "",
+        frais_de_port: "",
+        categorie: "",
+        stock: "",
+        description: "",
+      };
+
+      if (firstPMatch) {
+        const firstPContent = firstPMatch[1];
+
+        // Extract product details using regex
+        const prixMatch = firstPContent.match(/Prix\s*:\s*([\d,]+€?)/i);
+        const fraisMatch = firstPContent.match(
+          /frais\s*de\s*port\s*:\s*([^<\n]+)/i
+        );
+        const categorieMatch = firstPContent.match(
+          /Catégorie\s*:\s*([^<\n]+)/i
+        );
+        const stockMatch = firstPContent.match(/stock\s*:\s*(\d+)/i);
+
+        productInfo.prix = prixMatch ? prixMatch[1] : "";
+        productInfo.frais_de_port = fraisMatch ? fraisMatch[1].trim() : "";
+        productInfo.categorie = categorieMatch ? categorieMatch[1].trim() : "";
+        productInfo.stock = stockMatch ? stockMatch[1] : "";
+      }
+
+      // Extract description (everything after the first <p>)
+      const descriptionMatch = contentHTML.match(/<p>.*?<\/p>\s*([\s\S]*)/);
+      productInfo.description = descriptionMatch
+        ? descriptionMatch[1]
+        : contentHTML;
+
+      return {
+        ...post,
+        productInfo,
+      };
+    });
+  } catch (error) {
+    console.error("Erreur lors de la récupération des produits:", error);
     return [];
   }
 };

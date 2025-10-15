@@ -8,7 +8,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "wp.disco-mobile-dj-dany.fr",
+        hostname: "wp.mesbougies.fr",
         pathname: "/wp-content/**",
       },
     ],
