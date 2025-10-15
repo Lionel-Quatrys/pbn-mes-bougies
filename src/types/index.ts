@@ -26,6 +26,13 @@ export interface WordPressPost {
       alt_text?: string;
     }>;
   };
+  productInfo?: {
+    prix: string;
+    frais_de_port: string;
+    categorie: string;
+    stock: string;
+    description: string;
+  };
 }
 
 export interface WordPressMedia {
@@ -68,24 +75,4 @@ export interface WordPressCategory {
   slug: string;
   description?: string;
   count: number;
-}
-
-export interface WordPressPost {
-  id: number;
-  slug: string;
-  title: {
-    rendered: string;
-  };
-  content: {
-    rendered: string;
-  };
-  excerpt: {
-    rendered: string;
-  };
-  _embedded?: {
-    "wp:featuredmedia"?: Array<{
-      source_url: string;
-      alt_text?: string;
-    }>;
-  };
 }
