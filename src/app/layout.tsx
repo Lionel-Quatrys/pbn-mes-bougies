@@ -1,7 +1,6 @@
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { getCategoriesWithPosts } from "@/utils/api";
 
 export const metadata = {
   title: "Mes Bougies - Bougies artisanales et naturelles",
@@ -19,14 +18,12 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const categoriesWithPosts = await getCategoriesWithPosts();
-
   return (
     <html lang="fr">
       <body className="flex flex-col min-h-screen bg-white">
         <Header />
         <main className="flex-grow pt-20">{children}</main>
-        <Footer categoriesWithPosts={categoriesWithPosts} />
+        <Footer />
       </body>
     </html>
   );
